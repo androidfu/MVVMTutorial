@@ -10,34 +10,44 @@ class NoteRepository(private val noteDao: NoteDao) {
     private val allNotes: LiveData<List<Note>> = noteDao.getAllNotes()
 
     fun insert(note: Note) {
-        InsertNoteAsyncTask(
-            noteDao
-        ).execute(note)
+        DbAsyncTask(object : ResponseListener {
+            override fun onFinished(result: Any?) {
+                // You can process the result from onPostExecute in your listener
+                val noteId = result as Long
+            }
+        }) {
+            run {
+                noteDao.insert(note)
+            }
+        }.execute()
     }
 
     fun deleteAllNotes() {
-        DeleteAllNotesAsyncTask(
-            noteDao
-        ).execute()
+        DbAsyncTask {
+            run {
+                noteDao.deleteAllTickles()
+            }
+        }.execute()
     }
 
     fun getAllNotes(): LiveData<List<Note>> {
         return allNotes
     }
+    
+    private class DbAsyncTask(val listener: ResponseListener? = null, val block: () -> Any?) :
+        AsyncTask<Any, Any, Any>() {
 
-    private class InsertNoteAsyncTask(val noteDao: NoteDao) : AsyncTask<Note, Unit, Unit>() {
+        override fun doInBackground(vararg params: Any?): Any? {
+            return block()
+        }
 
-        override fun doInBackground(vararg note: Note?) {
-            noteDao.insert(note[0]!!)
+        override fun onPostExecute(result: Any?) {
+            listener?.onFinished(result)
         }
     }
 
-
-    private class DeleteAllNotesAsyncTask(val noteDao: NoteDao) : AsyncTask<Unit, Unit, Unit>() {
-
-        override fun doInBackground(vararg p0: Unit?) {
-            noteDao.deleteAllNotes()
-        }
+    interface ResponseListener {
+        fun onFinished(result: Any?)
     }
 
 }
